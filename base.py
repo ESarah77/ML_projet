@@ -45,8 +45,9 @@ class MSELoss(Loss):
         return ((y - yhat)**2).mean(axis=1)
 
     def backward(self, y, yhat):
-        cout = self.forward(y, yhat)
-        return torch.autograd.grad(inputs=yhat, outputs=cout, grad_outputs=torch.ones_like(cout))
+        # cout = self.forward(y, yhat)
+        # return torch.autograd.grad(inputs=yhat, outputs=cout, grad_outputs=torch.ones_like(cout))
+        return -2*(y-yhat)
 
 class Linear(Module):
     def __init__(self, input, output):
@@ -67,14 +68,17 @@ class Linear(Module):
         self._parameters -= gradient_step*self._gradient
 
     def backward_update_gradient(self, input, delta):
+        ## Met a jour la valeur du gradient
         # equation 1 : dérivée du module/gradient du cout par rapport à ses paramètres, en fonction de input et delta 
-        derivee = torch.autograd.grad(inputs=self._parameters, outputs=input, grad_outputs=delta)
-        self._gradient += derivee
+        # derivee = torch.autograd.grad(inputs=self._parameters, outputs=input, grad_outputs=delta)
+        self._gradient -= delta@input
+        return delta
 
     def backward_delta(self, input, delta):
+        ## Calcul la derivee de l'erreur
         # equation 2 : dérivée du module/gradient du cout par rapport à ses entrées, en fonction de input et delta
-        derivee = torch.autograd.grad(inputs=self.input, outputs=input, grad_outputs=delta)
-        return derivee
+        # derivee = torch.autograd.grad(inputs=self.input, outputs=input, grad_outputs=delta)
+        return self._parameters@delta
     
 ######################### 2E PARTIE : TanH et Sigmoide ###############################
 
