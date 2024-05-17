@@ -1,5 +1,3 @@
-# Page qui explique comment faire les dérivées partielles dans la chaine de règles
-# https://medium.com/@rizqinur2010/partial-derivatives-chain-rule-using-torch-autograd-grad-a8b5917373fa
 import numpy as np
 import torch
 
@@ -37,7 +35,6 @@ class Module(object):
         pass
 
 ######################## 1ERE PARTIE : MSELoss et Linear ##############################
-### A TESTER !!
 
 class MSELoss(Loss):
     def forward(self, y, yhat):
@@ -45,8 +42,6 @@ class MSELoss(Loss):
         return ((y - yhat)**2).mean(axis=1)
 
     def backward(self, y, yhat):
-        # cout = self.forward(y, yhat)
-        # return torch.autograd.grad(inputs=yhat, outputs=cout, grad_outputs=torch.ones_like(cout))
         return -2*(y-yhat)
 
 class Linear(Module):
@@ -54,16 +49,16 @@ class Linear(Module):
         super().__init__()
         self._parameters = {
             "weights" : np.random.rand(input, output), # Initialisation aléatoire de la matrice de poids/paramètres W (avant init param = None)
-            "bias" : np.random.rand(output) # Initialisation aléatoire du vecteur de biais
+            "bias" : np.random.rand(output).reshape(1, -1) # Initialisation aléatoire du vecteur de biais
         }
         self._gradient = {
-            "weights" : np.zeros((input, output)), # Initialisation aléatoire de la matrice de poids/paramètres W (avant init param = None)
-            "bias" : np.zeros((1, output)) # Initialisation aléatoire du vecteur de biais
+            "weights" : np.zeros((input, output)), # Initialisation des gradients des poids à 0
+            "bias" : np.zeros((1, output)) # Initialisation des gradients de biais à 0
         }
 
     def zero_grad(self):
-        self._gradient["weights"] = np.zeros(self._gradient["weights"])
-        self._gradient["bias"] = np.zeros(self._gradient["bias"])
+        self._gradient["weights"] = np.zeros(self._gradient["weights"].shape)
+        self._gradient["bias"] = np.zeros(self._gradient["bias"].shape)
 
     def forward(self, data):
         return data@self._parameters["weights"] + self._parameters["bias"]
@@ -76,14 +71,13 @@ class Linear(Module):
     def backward_update_gradient(self, input, delta):
         ## Met a jour la valeur du gradient
         # equation 1 : dL/dW, en fonction de input et delta 
-        self._gradient["weights"] += delta@input
+        self._gradient["weights"] += input.T @ delta
         self._gradient["bias"] += np.sum(delta, axis=0)
         
-
     def backward_delta(self, input, delta):
         ## Calcul la derivee de l'erreur
         # equation 2 : dL/dX, en fonction de input et delta
-        return delta@self._parameters["weights"]
+        return self._parameters["weights"] @ delta.T
     
 ######################### 2E PARTIE : TanH et Sigmoide ###############################
 
