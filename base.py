@@ -80,38 +80,53 @@ class Linear(Module):
         return self._parameters["weights"] @ delta.T
     
 ######################### 2E PARTIE : TanH et Sigmoide ###############################
+### A TESTER !!!
 
 class TanH(Module):
     def __init__(self, input, output):
-        super().__init__(_gradient) # On ne récupère pas les paramètres car on n'en a pas besoin dans cette couche
-        self.input = input
-        self.output = output # On n'en a pas besoin
-        self.zero_grad() # Initialisation du gradient à 0 (avant init gradient = None)
+        super().__init__() # On ne récupère pas les paramètres car on n'en a pas besoin dans cette couche
+        self.output = None
 
+    def zero_grad(self):
+        pass
+
+    def forward(self, data):
+        self.output = np.tanh(data)
+        return self.output
+        
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
-        return # Ne fait rien car il n'y a pas de paramètres
+        pass # Ne fait rien car il n'y a pas de paramètres
     
     def backward_update_gradient(self, input, delta):
-        pass
+        ## Met a jour la valeur du gradient
+        pass  # Ne fait rien car il n'y a pas de paramètres
 
     def backward_delta(self, input, delta):
-        pass
+        ## Calcul la derivee de l'erreur
+        return (1 - self.output**2).T @ delta
     
 class Sigmoide(Module):
     def __init__(self, input, output):
-        super().__init__(_gradient) # On ne récupère pas les paramètres car on n'en a pas besoin dans cette couche
-        self.input = input
-        self.output = output # On n'en a pas besoin
-        self.zero_grad() # Initialisation du gradient à 0 (avant init gradient = None)
+        super().__init__() # On ne récupère pas les paramètres car on n'en a pas besoin dans cette couche
+        self.output = None
+    
+    def zero_grad(self):
+        pass
 
+    def forward(self, data):
+        self.output = 1 / (1 + np.exp(-data))
+        return self.output
+        
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
-        return # Ne fait rien car il n'y a pas de paramètres
+        pass # Ne fait rien car il n'y a pas de paramètres
     
     def backward_update_gradient(self, input, delta):
-        pass
+        ## Met a jour la valeur du gradient
+        pass  # Ne fait rien car il n'y a pas de paramètres
 
     def backward_delta(self, input, delta):
-        pass
+        ## Calcul la derivee de l'erreur
+        return self.output * (1 - self.output) @ delta
 
