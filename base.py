@@ -51,34 +51,39 @@ class MSELoss(Loss):
 
 class Linear(Module):
     def __init__(self, input, output):
-        super().__init__(_parameters, _gradient)
-        self.input = input
-        self.output = output # On n'en a pas besoin
-        self._parameters = np.random.rand(input, output) # Initialisation aléatoire de la matrice de poids/paramètres W (avant init param = None)
-        self.zero_grad() # Initialisation du gradient à 0 (avant init gradient = None)
+        super().__init__()
+        self._parameters = {
+            "weights" : np.random.rand(input, output), # Initialisation aléatoire de la matrice de poids/paramètres W (avant init param = None)
+            "bias" : np.random.rand(output) # Initialisation aléatoire du vecteur de biais
+        }
+        self._gradient = {
+            "weights" : np.zeros((input, output)), # Initialisation aléatoire de la matrice de poids/paramètres W (avant init param = None)
+            "bias" : np.zeros((1, output)) # Initialisation aléatoire du vecteur de biais
+        }
 
     def zero_grad(self):
-        self._gradient = 0
-    
-    def forward(self, X):
-        return X@self._parameters
+        self._gradient["weights"] = np.zeros(self._gradient["weights"])
+        self._gradient["bias"] = np.zeros(self._gradient["bias"])
+
+    def forward(self, data):
+        return data@self._parameters["weights"] + self._parameters["bias"]
     
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
-        self._parameters -= gradient_step*self._gradient
+        self._parameters["weights"] -= gradient_step*self._gradient["weights"]
+        self._parameters["bias"] -= gradient_step*self._gradient["bias"]
 
     def backward_update_gradient(self, input, delta):
         ## Met a jour la valeur du gradient
-        # equation 1 : dérivée du module/gradient du cout par rapport à ses paramètres, en fonction de input et delta 
-        # derivee = torch.autograd.grad(inputs=self._parameters, outputs=input, grad_outputs=delta)
-        self._gradient -= delta@input
-        return delta
+        # equation 1 : dL/dW, en fonction de input et delta 
+        self._gradient["weights"] += delta@input
+        self._gradient["bias"] += np.sum(delta, axis=0)
+        
 
     def backward_delta(self, input, delta):
         ## Calcul la derivee de l'erreur
-        # equation 2 : dérivée du module/gradient du cout par rapport à ses entrées, en fonction de input et delta
-        # derivee = torch.autograd.grad(inputs=self.input, outputs=input, grad_outputs=delta)
-        return self._parameters@delta
+        # equation 2 : dL/dX, en fonction de input et delta
+        return delta@self._parameters["weights"]
     
 ######################### 2E PARTIE : TanH et Sigmoide ###############################
 
