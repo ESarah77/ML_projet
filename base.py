@@ -80,19 +80,16 @@ class Linear(Module):
         return self._parameters["weights"] @ delta.T
     
 ######################### 2E PARTIE : TanH et Sigmoide ###############################
-### A TESTER !!!
 
 class TanH(Module):
-    def __init__(self, input, output):
+    def __init__(self):
         super().__init__() # On ne récupère pas les paramètres car on n'en a pas besoin dans cette couche
-        self.output = None
 
     def zero_grad(self):
         pass
 
     def forward(self, data):
-        self.output = np.tanh(data)
-        return self.output
+        return np.tanh(data)
         
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
@@ -104,19 +101,17 @@ class TanH(Module):
 
     def backward_delta(self, input, delta):
         ## Calcul la derivee de l'erreur
-        return (1 - self.output**2).T @ delta
+        return (1 - self.forward(input)**2) * delta.T
     
 class Sigmoide(Module):
-    def __init__(self, input, output):
+    def __init__(self):
         super().__init__() # On ne récupère pas les paramètres car on n'en a pas besoin dans cette couche
-        self.output = None
     
     def zero_grad(self):
         pass
 
     def forward(self, data):
-        self.output = 1 / (1 + np.exp(-data))
-        return self.output
+        return 1 / (1 + np.exp(-data))
         
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
@@ -128,5 +123,6 @@ class Sigmoide(Module):
 
     def backward_delta(self, input, delta):
         ## Calcul la derivee de l'erreur
-        return self.output * (1 - self.output) @ delta
+        output = self.forward(input)
+        return output * (1 - output) * delta
 
