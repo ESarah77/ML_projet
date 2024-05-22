@@ -15,13 +15,13 @@ def one_hot_encode(labels, num_classes):
     return one_hot
 
 def accuracy_multiclasse(predictions, targets):
-    predicted_classes = np.argmax(predictions, axis=1)
-    true_classes = np.argmax(targets, axis=1)
+    predicted_classes = np.argmax(predictions, axis=-1)
+    true_classes = np.argmax(targets, axis=-1)
     accuracy = np.mean(predicted_classes == true_classes)
     return accuracy
 
 def accuracy_bin(predictions, targets):
-    pred = np.where(predictions > 0.5, 1, 0)
+    pred = np.where(predictions >= 0.5, 1, 0)
     return np.mean(pred == targets)
 
 ################################# CLASSES DE BASES ################################
@@ -63,7 +63,7 @@ class Module(object):
 class MSELoss(Loss):
     def forward(self, y, yhat):
         # y et yhat de taille batch x d
-        return ((y - yhat)**2).mean(axis=1)
+        return ((y - yhat)**2).mean(axis=-1)
 
     def backward(self, y, yhat):
         return -2*(y-yhat)
@@ -79,7 +79,7 @@ class Linear(Module):
             "weights" : np.zeros((input, output)), # Initialisation des gradients des poids à 0
             "bias" : np.zeros((1, output)) # Initialisation des gradients de biais à 0
         }
-
+        
     def zero_grad(self):
         self._gradient["weights"] = np.zeros(self._gradient["weights"].shape)
         self._gradient["bias"] = np.zeros(self._gradient["bias"].shape)
@@ -168,6 +168,7 @@ class Sequentiel(Module):
         input = data
         for layer in self._modules:
             output = layer.forward(input)
+            print(output[:30])
             self._outputs.append(output)
             input = output # Mise à jour des données d'entrée
         return output
@@ -247,7 +248,6 @@ def SGD(net, loss, X, Y, batch_size, n_iter, learning_rate):
             loss_value, accuracy_value = opt.step(batch_x, batch_y)
             tmp_loss.append(loss_value)
             tmp_acc.append(accuracy_value)
-        print(tmp_acc)
         
         loss_history.append(np.mean(tmp_loss)) # mean of the loss of each batch
         accuracy_history.append(np.mean(tmp_acc))
@@ -266,9 +266,9 @@ class Softmax(Module):
 
     def forward(self, X):
         ## Calcule la passe forward
-        data_without_overflow = X - np.max(X, axis=1, keepdims=True)
+        data_without_overflow = X - np.max(X, axis=-1, keepdims=True)
         exp_data = np.exp(data_without_overflow) # soustraire par le max pour éviter les instabilités numériques
-        return exp_data / np.sum(exp_data, axis=1, keepdims=True) # probas normalisées
+        return exp_data / np.sum(exp_data, axis=-1, keepdims=True) # probas normalisées
 
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
@@ -294,9 +294,9 @@ class LogSoftmax(Module):
 
     def forward(self, X):
         ## Calcule la passe forward
-        max_data = np.max(X, axis=1, keepdims=True)
+        max_data = np.max(X, axis=-1, keepdims=True)
         data_without_overflow = prevent_overflow(X - max_data)
-        log_sum_exp = np.log(np.sum(np.exp(data_without_overflow), axis=1, keepdims=True))
+        log_sum_exp = np.log(np.sum(np.exp(data_without_overflow), axis=-1, keepdims=True))
         return X - max_data - log_sum_exp
 
     def update_parameters(self, gradient_step=1e-3):
@@ -312,12 +312,12 @@ class LogSoftmax(Module):
         output = self.forward(input)
         data_without_overflow = prevent_overflow(output)
         e = np.exp(data_without_overflow)
-        return delta * (1 - e / np.sum(e, axis=1, keepdims=True))
+        return delta * (1 - e / np.sum(e, axis=-1, keepdims=True))
 
 
 class CE(Loss):
     def forward(self, y, yhat): # y : one-hot encoded
-        return -np.sum(y * yhat, axis=1) # y et yhat matrix
+        return -np.sum(y * yhat, axis=-1) # y et yhat matrix
 
     def backward(self, y, yhat):
         return yhat - y
@@ -326,10 +326,9 @@ class CE(Loss):
 class CELogSoftmax(Loss):
     def forward(self, y, yhat):
         data_without_overflow = prevent_overflow(yhat)
-        return -np.sum(y * yhat, axis=1) + np.log(np.sum(np.exp(data_without_overflow), axis=1)) 
+        return -np.sum(y * yhat, axis=-1) + np.log(np.sum(np.exp(data_without_overflow), axis=1)) 
 
     def backward(self, y, yhat):
         data_without_overflow = prevent_overflow(yhat)
         e = np.exp(data_without_overflow)
-        return -y + e / (np.sum(e, axis=1).reshape((-1, 1)))
-    
+        return -y + e / (np.sum(e, axis=-1).reshape((-1, 1)))
