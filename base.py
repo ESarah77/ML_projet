@@ -24,6 +24,10 @@ def accuracy_bin(predictions, targets):
     pred = np.where(predictions >= 0.5, 1, 0)
     return np.mean(pred == targets)
 
+def seuillage_log(data):
+    data_non_0 = np.where(data == 0, 1e-10, data) # éviter log(0)
+    return np.maximum(-100, np.log(data_non_0))
+
 ################################# CLASSES DE BASES ################################
 
 class Loss(object):
@@ -136,7 +140,7 @@ class Sigmoide(Module):
 
     def forward(self, data):
         data_without_overflow = prevent_overflow(data)
-        return 1 / (1 + np.exp(-data))
+        return 1 / (1 + np.exp(-data_without_overflow))
         
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
@@ -267,7 +271,7 @@ class Softmax(Module):
     def forward(self, X):
         ## Calcule la passe forward
         data_without_overflow = X - np.max(X, axis=-1, keepdims=True)
-        exp_data = np.exp(X - np.max(X, axis=-1, keepdims=True)) # soustraire par le max pour éviter les instabilités numériques
+        exp_data = np.exp(data_without_overflow) # soustraire par le max pour éviter les instabilités numériques
         return exp_data / np.sum(exp_data, axis=-1, keepdims=True) # probas normalisées
 
     def update_parameters(self, gradient_step=1e-3):
@@ -296,7 +300,7 @@ class LogSoftmax(Module):
         ## Calcule la passe forward
         max_data = np.max(X, axis=-1, keepdims=True)
         data_without_overflow = prevent_overflow(X - max_data)
-        log_sum_exp = np.log(np.sum(np.exp(X - max_data), axis=-1, keepdims=True))
+        log_sum_exp = np.log(np.sum(np.exp(data_without_overflow), axis=-1, keepdims=True))
         return X - max_data - log_sum_exp
 
     def update_parameters(self, gradient_step=1e-3):
@@ -311,7 +315,7 @@ class LogSoftmax(Module):
         ## Calcul la derivee de l'erreur
         output = self.forward(input)
         data_without_overflow = prevent_overflow(output)
-        e = np.exp(output)
+        e = np.exp(data_without_overflow)
         return delta * (1 - e / np.sum(e, axis=-1, keepdims=True))
 
 
@@ -332,4 +336,16 @@ class CELogSoftmax(Loss):
         data_without_overflow = prevent_overflow(yhat)
         e = np.exp(data_without_overflow)
         return e / (np.sum(e, axis=1).reshape((-1, 1)) + 1e-10) - y
-    
+
+######################### 5E PARTIE : BCE ###############################
+
+class BCE(object):
+    def forward(self, y, yhat):
+        log_yhat = seuillage_log(yhat)
+        log_comp_yhat = seuillage_log(1 - yhat)
+        return -(y*log_yhat + (1-y)*log_comp_yhat)
+
+    def backward(self, y, yhat):
+        yhat_non_0 = np.where(yhat == 0, 1e-10, yhat) # éviter les divisions par 0
+        yhat_comp_non_0 = np.where(1-yhat == 0, 1e-10, 1-yhat) # éviter les divisions par 0
+        return -(y/yhat_non_0 - (1-y)/(yhat_comp_non_0))
