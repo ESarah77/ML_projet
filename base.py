@@ -4,9 +4,9 @@ import torch
 ########################### FONCTIONS UTILES ###################################
 
 def prevent_overflow(data): # Fonction à utiliser dès qu'une valeur est donnée à l'exponentielle
-    # 709 = borne supérieure pour éviter l'overflow lorsqu'un très grand nombre est donné à l'exponentielle
-    data_without_overflow = np.where(data > 709, 709, data)
-    data_without_overflow = np.where(data_without_overflow < -709, -709, data_without_overflow)
+    # 200 = borne pour éviter l'overflow lorsqu'un très grand nombre est donné à l'exponentielle
+    data_without_overflow = np.where(data > 200, 200, data)
+    data_without_overflow = np.where(data_without_overflow < -200, -200, data_without_overflow)
     return data_without_overflow
 
 def one_hot_encode(labels, num_classes):
@@ -113,7 +113,7 @@ class TanH(Module):
         pass
 
     def forward(self, data):
-        return np.tanh(data)
+        return np.tanh(data.astype(np.float64))
         
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
@@ -136,7 +136,7 @@ class Sigmoide(Module):
 
     def forward(self, data):
         data_without_overflow = prevent_overflow(data)
-        return 1 / (1 + np.exp(-data_without_overflow))
+        return 1 / (1 + np.exp(-data))
         
     def update_parameters(self, gradient_step=1e-3):
         ## Calcule la mise a jour des parametres selon le gradient calcule et le pas de gradient_step
@@ -168,7 +168,7 @@ class Sequentiel(Module):
         input = data
         for layer in self._modules:
             output = layer.forward(input)
-            print(output[:30])
+            # print(output[:10])
             self._outputs.append(output)
             input = output # Mise à jour des données d'entrée
         return output
@@ -267,7 +267,7 @@ class Softmax(Module):
     def forward(self, X):
         ## Calcule la passe forward
         data_without_overflow = X - np.max(X, axis=-1, keepdims=True)
-        exp_data = np.exp(data_without_overflow) # soustraire par le max pour éviter les instabilités numériques
+        exp_data = np.exp(X - np.max(X, axis=-1, keepdims=True)) # soustraire par le max pour éviter les instabilités numériques
         return exp_data / np.sum(exp_data, axis=-1, keepdims=True) # probas normalisées
 
     def update_parameters(self, gradient_step=1e-3):
@@ -296,7 +296,7 @@ class LogSoftmax(Module):
         ## Calcule la passe forward
         max_data = np.max(X, axis=-1, keepdims=True)
         data_without_overflow = prevent_overflow(X - max_data)
-        log_sum_exp = np.log(np.sum(np.exp(data_without_overflow), axis=-1, keepdims=True))
+        log_sum_exp = np.log(np.sum(np.exp(X - max_data), axis=-1, keepdims=True))
         return X - max_data - log_sum_exp
 
     def update_parameters(self, gradient_step=1e-3):
@@ -311,7 +311,7 @@ class LogSoftmax(Module):
         ## Calcul la derivee de l'erreur
         output = self.forward(input)
         data_without_overflow = prevent_overflow(output)
-        e = np.exp(data_without_overflow)
+        e = np.exp(output)
         return delta * (1 - e / np.sum(e, axis=-1, keepdims=True))
 
 
@@ -326,9 +326,10 @@ class CE(Loss):
 class CELogSoftmax(Loss):
     def forward(self, y, yhat):
         data_without_overflow = prevent_overflow(yhat)
-        return -np.sum(y * yhat, axis=-1) + np.log(np.sum(np.exp(data_without_overflow), axis=1)) 
+        return np.log(np.sum(np.exp(data_without_overflow), axis=1) + 1e-10) - np.sum(y * data_without_overflow, axis=1) 
 
     def backward(self, y, yhat):
         data_without_overflow = prevent_overflow(yhat)
         e = np.exp(data_without_overflow)
-        return -y + e / (np.sum(e, axis=-1).reshape((-1, 1)))
+        return e / (np.sum(e, axis=1).reshape((-1, 1)) + 1e-10) - y
+    
